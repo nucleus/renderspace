@@ -36,7 +36,13 @@ glm::vec3 Raytracer::refraction(Ray& ray, glm::vec3& hitPoint, Object* obj, int 
 	glm::vec3 color(0.0f);
 
 	// get the refracted ray at the other side of the object
-	if(!obj->intersect(refractionRay, tIntersect)) return glm::vec3(0.0);
+	Object* backsideObj;
+	if(obj->type == OBJ_SPHERE) {
+		if(!obj->intersect(refractionRay, tIntersect)) return glm::vec3(0.0);
+	} else {
+		if(!(scene->getKdTree()->traverseAndIntersect(refractionRay, obj, tIntersect, PRIMARY_RAY_OBJID))) return glm::vec3(0.0f);
+	}
+
 	glm::vec3 insideHit = refractionRay.org + tIntersect * refractionRay.dir;
 	glm::vec3 objNormalRefr = obj->computeNormal(insideHit);
 	refractionRay.org = insideHit + 0.01*objNormalRefr;
@@ -130,8 +136,8 @@ glm::vec3 Raytracer::trace(Ray& ray, Object** primaryObj, int remainBounces, uns
 					// if lighted, compute self-light contribution with blinn-phong
 					if(isLighted)
 						color += s * shadeBlinnPhong(light, ray, closestIntersection, closestObj);
-					else
-						color += s * closestObj->getColor(closestIntersection) * closestObj->material.ambient;
+//					else
+//						color += s * closestObj->getColor(closestIntersection) * closestObj->material.ambient;
 					break;
 				} // case LT_POINT
 				case LT_AREA:
@@ -146,8 +152,8 @@ glm::vec3 Raytracer::trace(Ray& ray, Object** primaryObj, int remainBounces, uns
 						if(isLighted) {
 							PointLight p((*it), light->color);
 							color += s * shadeBlinnPhong(&p, ray, closestIntersection, closestObj);
-						} else
-							color += s * closestObj->getColor(closestIntersection) * closestObj->material.ambient;
+						} //else
+//							color += s * closestObj->getColor(closestIntersection) * closestObj->material.ambient;
 					}
 
 					color = color / (float)(AL_SAMPLES * AL_SAMPLES);
@@ -173,7 +179,7 @@ glm::vec3 Raytracer::trace(Ray& ray, Object** primaryObj, int remainBounces, uns
 
 		// refraction light contribution, currently only works for spheres due to
 		// AABB intersection computation
-		if(closestObj->type == OBJ_SPHERE) {
+		if(closestObj->type == OBJ_SPHERE || closestObj->type == OBJ_TRIANGLE) {
 			r = closestObj->material.refrLightContrib;
 			if(r > 0.0) {
 				color += r * closestObj->getColor(closestIntersection) * refraction(ray, closestIntersection, closestObj, remainBounces);

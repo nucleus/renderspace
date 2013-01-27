@@ -473,7 +473,7 @@ glm::vec2 Plane::getMinMaxAlongDimension(char dim) {
  *////////////////////////// Triangle /////////////////////////////
  ////////////////////////////////////////////////////////////////*/
 
-Triangle::Triangle(glm::vec3* v1, glm::vec3* v2, glm::vec3* v3, glm::vec3* n1, glm::vec3* n2, glm::vec3* n3, glm::vec3 color, unsigned long long id) {
+Triangle::Triangle(glm::vec3* v1, glm::vec3* v2, glm::vec3* v3, glm::vec3* n1, glm::vec3* n2, glm::vec3* n3, glm::vec3 color, int material, float refrN, unsigned long long id) {
 	vertices[0] = v1;
 	vertices[1] = v2;
 	vertices[2] = v3;
@@ -483,7 +483,22 @@ Triangle::Triangle(glm::vec3* v1, glm::vec3* v2, glm::vec3* v3, glm::vec3* n1, g
 	type = OBJ_TRIANGLE;
 	this->color = color;
 	this->id = id;
-	this->material = idealDiffMaterial;
+
+	switch(material) {
+	case 1:
+		this->material = idealDiffMaterial;
+		break;
+	case 2:
+		this->material = idealReflMaterial;
+		break;
+	case 3:
+		this->material = idealRefrMaterial;
+		this->material.refractionIndex = refrN;
+		break;
+	default:
+		std::cerr << "ERROR: Unrecognized material identifier! Choosing diffuse ..." << std::endl;
+		this->material = idealDiffMaterial;
+	}
 
 	// precomputations: init
 	glm::vec3 A = *v1;
@@ -543,7 +558,6 @@ bool Triangle::intersect(Ray& ray, float& tIntersect) {
 	#define kv mod[k+2]
 	glm::vec3 O = ray.org, D = ray.dir, A = *(vertices[0]);
 	float dnr = (D[k] + nu * D[ku] + nv * D[kv]);
-//	if(ABS(dnr) < 0.0001f) return false;
 	float lnd = 1.0f / dnr;
 	float t = (nd - O[k] - nu * O[ku] - nv * O[kv]) * lnd;
 	if(t <= 0.0f) return false;
@@ -570,12 +584,12 @@ bool Triangle::intersect(Ray& ray, glm::vec3& hitPoint) {
 
 // TODO: integrate a U-V-cache private to each worker thread into the triangle class
 glm::vec3 Triangle::computeNormal(glm::vec3& surfacePoint) {
-	return faceNormal;
-//	glm::vec3 N1 = *(normals[0]);
-//	glm::vec3 N2 = *(normals[1]);
-//	glm::vec3 N3 = *(normals[2]);
-//	glm::vec3 ret = N1 + U[omp_get_thread_num()] * (N2 - N1) + V[omp_get_thread_num()] * (N3 - N1);
-//	return glm::fastNormalize(ret);
+//	return faceNormal;
+	glm::vec3 N1 = *(normals[0]);
+	glm::vec3 N2 = *(normals[1]);
+	glm::vec3 N3 = *(normals[2]);
+	glm::vec3 ret = N1 + U[omp_get_thread_num()] * (N2 - N1) + V[omp_get_thread_num()] * (N3 - N1);
+	return glm::fastNormalize(ret);
 }
 
 glm::vec2 Triangle::getMinMaxAlongDimension(char dim) {
@@ -724,7 +738,7 @@ bool SceneDescription::readSceneFile(std::string fname) {
 	int materialSel, fov;
 	std::string texfile;
 
-	std::cout << "Reading scene file " << fname << " ...";
+	std::cout << "Reading scene file " << fname << " ..." << std::flush;
 
 	if(in) {
 		// get the number of objects and read them
@@ -769,7 +783,9 @@ bool SceneDescription::readSceneFile(std::string fname) {
 //					break;
 				case OBJ_TRIANGLE:
 					in >> texfile >> r >> g >> b >> materialSel;
-					if(!loadMeshOFF(texfile, objects, glm::vec3(r,g,b), materialSel)) {
+					if(materialSel == 3)
+						in >> x;
+					if(!loadMeshOFF(texfile, objects, glm::vec3(r,g,b), materialSel, x)) {
 						std::cerr << "ERROR: Cannot read mesh file " << texfile << std::endl; exit(EXIT_FAILURE);
 					}
 					break;
@@ -848,7 +864,7 @@ KdTree* SceneDescription::getKdTree() {
 	return kdtree;
 }
 
-bool SceneDescription::loadMeshOFF(std::string fname, std::list<Object*>& objs, glm::vec3 meshCol, int material) {
+bool SceneDescription::loadMeshOFF(std::string fname, std::list<Object*>& objs, glm::vec3 meshCol, int material, float refrN) {
 	std::fstream in(fname.c_str());
 	std::string off("OFF");
 	char buf[OFF_READER_BUF];
@@ -883,6 +899,8 @@ bool SceneDescription::loadMeshOFF(std::string fname, std::list<Object*>& objs, 
         	Object* tri = new Triangle(&vertices[v1], &vertices[v2], &vertices[v3], // vertex pointers
 									   &vertexNormals[v1], &vertexNormals[v2], &vertexNormals[v3], // vertex normal pointers
 									   meshCol, // color
+									   material, // material selector
+									   refrN,
 									   globalObjID++); // obj id
         	objs.push_back(tri);
         }

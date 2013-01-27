@@ -159,7 +159,7 @@ private:
 #if KDTREE_LARGENODES == 1
 	void build(KdTreeNode* node, int depth = 0);
 #else
-	void build(KdTreeNode* node, std::list<Object*>* list, int depth = 0);
+	void build(KdTreeNode* node, AABB& bbox, std::list<Object*>* list, int depth = 0);
 	void buildSAH(KdTreeNode* node, std::list<Object*>* list, int depth = 0);
 	void subdivide(KdTreeNode* node, std::list<Object*>* list, AABB& box, int depth, int prims);
 	void insertSplitPos(float pos);

@@ -227,7 +227,7 @@ public:
  */
 class Triangle : public Object {
 public:
-	Triangle(glm::vec3* v1, glm::vec3* v2, glm::vec3* v3, glm::vec3* n1, glm::vec3* n2, glm::vec3* n3, glm::vec3 color, unsigned long long id);
+	Triangle(glm::vec3* v1, glm::vec3* v2, glm::vec3* v3, glm::vec3* n1, glm::vec3* n2, glm::vec3* n3, glm::vec3 color, int material, float refrN, unsigned long long id);
 	~Triangle();
 
 	glm::vec3* vertices[3];
@@ -265,7 +265,7 @@ public:
 	void buildKdTree();
 	KdTree* getKdTree();
 
-	bool loadMeshOFF(std::string fname, std::list<Object*>& objs, glm::vec3 meshCol, int material);
+	bool loadMeshOFF(std::string fname, std::list<Object*>& objs, glm::vec3 meshCol, int material, float refrN);
 
 	void insertObj(Object* obj) { objects.push_back(obj); }
 

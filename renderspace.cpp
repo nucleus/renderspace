@@ -72,14 +72,18 @@ int main(int argc, char** argv) {
 
 	// read the scene description from disk
 	SceneDescription* scene = new SceneDescription();
+	TIME(start);
 	if(!scene->readSceneFile(sceneFileName)) {
 		std::cerr << "ERROR: Could not parse scene file!" << std::flush << std::endl;
 		return EXIT_FAILURE;
 	}
+	TIME(end);
 	scene->dumpScene();
+	double sceneReadTime = (double)timevaldiff(start, end)/1000.0;
+
 	TIME(start); scene->buildKdTree(); TIME(end);
 	double treeConstructionTime = (double)timevaldiff(start, end)/1000.0;
-	scene->getKdTree()->print();
+//	scene->getKdTree()->print();
 
 	// set up the rendering environment
 	Renderer* renderer = new Raytracer();
@@ -90,8 +94,9 @@ int main(int argc, char** argv) {
 	TIME(start); renderer->renderScene(); TIME(end);
 
 	// print runtime stats
-	cout << "time         : " << (double)timevaldiff(start, end)/1000.0 << "s" << endl;
-	cout << "kdtree time  : " << treeConstructionTime << "s" << endl;
+	cout << "i/o time    : " << sceneReadTime << "s" << endl;
+	cout << "render time : " << (double)timevaldiff(start, end)/1000.0 << "s" << endl;
+	cout << "kdtree time : " << treeConstructionTime << "s" << endl;
 	cout << "intersections: " << totalIntersectionTests << endl;
 
 	// do output

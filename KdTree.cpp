@@ -86,7 +86,8 @@ KdTree::KdTree(SceneDescription* scene) {
 	this->manager = new MemManager();
 
 	std::cout << "Constructing Kd-tree from " << scene->getObjects().size() << " objects, node size in memory is " << sizeof(KdTreeNode) << " bytes ... " << std::flush;
-	buildSAH(root, &(scene->getObjects()));
+//	buildSAH(root, &(scene->getObjects()));
+	build(root, *treeBBox, &(scene->getObjects()));
 	std::cout << "done" << std::endl;
 }
 #endif
@@ -140,7 +141,7 @@ void KdTree::build(KdTreeNode *node, int depth) {
 	build(rightChild, depth+1);
 }
 #else
-void KdTree::build(KdTreeNode* node, std::list<Object*>* list, int depth) {
+void KdTree::build(KdTreeNode* node, AABB& bbox, std::list<Object*>* list, int depth) {
 	// if max depth reached of only few objs left in node, set to leaf and break rec.
 	if(depth > TREE_DEPTH_MAX || list->size() < NODE_MIN_OBJS) {
 		node->setLeaf(true);
@@ -149,12 +150,30 @@ void KdTree::build(KdTreeNode* node, std::list<Object*>* list, int depth) {
 	}
 
 	// find splitting position (and axis?)
-	float splitPos = findOptimalSplitPosition(list, node->getAxis());
+//	float splitPos = findOptimalSplitPosition(list, node->getAxis());
+	if(bbox.extents.y >= bbox.extents.x && bbox.extents.y > bbox.extents.z)
+		node->setAxis(1);
+	else if(bbox.extents.z >= bbox.extents.x && bbox.extents.z > bbox.extents.y)
+		node->setAxis(2);
+	char axis = node->getAxis();
+	float splitPos = (bbox.minCorner[axis] + bbox.maxCorner[axis]) / 2.0f;
 	node->setSplitPos(splitPos);
+	node->setLeaf(false);
 
 	// create the children
 	std::list<Object*>* leftList = new std::list<Object*>();
 	std::list<Object*>* rightList = new std::list<Object*>();
+
+	AABB leftBox(bbox.minCorner, bbox.maxCorner);
+	leftBox.maxCorner[axis] = splitPos;
+	leftBox.extents[axis] = leftBox.maxCorner[axis] - leftBox.minCorner[axis];
+	leftBox.center[axis] = leftBox.minCorner[axis] + 0.5f * leftBox.extents[axis];
+
+	AABB rightBox(bbox.minCorner, bbox.maxCorner);
+	rightBox.minCorner[axis] = splitPos;
+	rightBox.extents[axis] = rightBox.maxCorner[axis] - rightBox.minCorner[axis];
+	rightBox.center[axis] = rightBox.minCorner[axis] + 0.5f * rightBox.extents[axis];
+
 	char nextAxis = mod[node->getAxis() + 1];
 	KdTreeNode* leftChild = manager->allocateKdTreeNodePair();
 	leftChild->setLeaf(false);
@@ -177,8 +196,8 @@ void KdTree::build(KdTreeNode* node, std::list<Object*>* list, int depth) {
 	node->setLeft(leftChild);
 
 	// recurse
-	build(leftChild, leftList, depth+1);
-	build(rightChild, rightList, depth+1);
+	build(leftChild, leftBox, leftList, depth+1);
+	build(rightChild, rightBox, rightList, depth+1);
 
 }
 
